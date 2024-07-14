@@ -1,4 +1,5 @@
 from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QMainWindow, QTabWidget, QTextEdit, QGridLayout, QWidget
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,7 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self.db_session = db_session
         self.setFixedSize(1280, 720)
+        self.setWindowIcon(QIcon('favicon.ico'))
         self.status_bar = self.statusBar()
         self.signals = MainSignals()
         self.change_window_title()
@@ -42,9 +44,11 @@ class MainWindow(QMainWindow):
         self.signals.enterprise_changed.emit()
 
     def change_window_title(self):
-        self.setWindowTitle(f"Veterinary events adder")
+        base_window_title = "Veterinary events adder"
+        version = "v1.0"
+        self.setWindowTitle(f"{base_window_title} {version}")
         user = get_user(self.db_session)
         if user is None:
-            self.setWindowTitle(f"Veterinary events adder: пользователь не указан")
+            self.setWindowTitle(f"{base_window_title} {version}: пользователь не указан")
         else:
-            self.setWindowTitle(f"Veterinary events adder: {user.login}")
+            self.setWindowTitle(f"{base_window_title} {version}: [{user.login}]")

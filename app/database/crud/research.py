@@ -35,23 +35,26 @@ def get_enterprise_by_uuid(db: Session, enterprise_uuid: str):
 
 
 def delete_enterprise(db: Session, enterprise_uuid: str):
-    db.execute(
-        delete(models.BaseResearch)
-        .where(models.BaseResearch.enterprise_uuid == enterprise_uuid)
-    )
-    db.execute(
-        delete(models.BaseResearch)
-        .where(models.SpecialResearch.enterprise_uuid == enterprise_uuid)
-    )
-    db.execute(
-        delete(models.BaseResearch)
-        .where(models.ExcludeProducts.enterprise_uuid == enterprise_uuid)
-    )
-    db.execute(
-        delete(models.EnterpriseForResearch)
-        .where(models.EnterpriseForResearch.uuid == enterprise_uuid)
-    )
-    db.commit()
+    try:
+        db.execute(
+            delete(models.BaseResearch)
+            .where(models.BaseResearch.enterprise_uuid == enterprise_uuid)
+        )
+        db.execute(
+            delete(models.SpecialResearch)
+            .where(models.SpecialResearch.enterprise_uuid == enterprise_uuid)
+        )
+        db.execute(
+            delete(models.ExcludeProducts)
+            .where(models.ExcludeProducts.enterprise_uuid == enterprise_uuid)
+        )
+        db.execute(
+            delete(models.EnterpriseForResearch)
+            .where(models.EnterpriseForResearch.uuid == enterprise_uuid)
+        )
+        db.commit()
+    except Exception as e:
+        print(f"{type(e)} {e}")
 
 
 def delete_research_by_enterprise_uuid(db: Session, enterprise_uuid: str):

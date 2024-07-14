@@ -102,6 +102,9 @@ class ResearchAdder(QWidget):
                 created_products = mercury.get_products_in_incomplete_transaction(transaction_pk=transaction_pk)
                 if created_products:
                     logger.info("Получена продукция из транзакции незавершенного производства")
+                else:
+                    logger.info("Не удалось обнаружить выработанную продукцию. "
+                                "Возможно, номер транзакции указан неверно")
             else:
                 logger.info("Получена продукция из обычной транзакции")
 
@@ -150,4 +153,3 @@ class ResearchAdder(QWidget):
         for item in enterprises:
             self.enterprise_combobox.addItem(item.name, item.uuid)
         self.frame_layout.addWidget(self.enterprise_combobox, 0, 1, 1, 1)
-

@@ -1,6 +1,7 @@
 import sys
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtGui import QPalette, QColor
+from PyQt6.QtWidgets import QApplication, QStyleFactory
 
 from app.database.postgre import SessionLocal
 from app.window.main import MainWindow
