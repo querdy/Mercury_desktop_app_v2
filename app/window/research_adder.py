@@ -78,6 +78,7 @@ class ResearchAdder(QWidget):
         worker.signals.finished.connect(lambda: self.all_lab_checkbox.setEnabled(True))
         worker.signals.finished.connect(lambda: self.transaction_pk_line_edit.setEnabled(True))
         worker.signals.finished.connect(lambda: self.enterprise_combobox.setEnabled(True))
+        worker.signals.finished.connect(lambda: self.log_window.remove_logger())
         self.thread_pool.start(worker)
         self.log_window.add_logger()
 

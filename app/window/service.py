@@ -65,6 +65,7 @@ class Service(QWidget):
         self.save_api_settings_button.setEnabled(False)
         worker = Worker(self.try_login_and_save_auth_data)
         worker.signals.finished.connect(lambda: self.save_api_settings_button.setEnabled(True))
+        worker.signals.finished.connect(lambda: self.log_window.remove_logger())
         self.thread_pool.start(worker)
         self.log_window.add_logger()
 
@@ -82,4 +83,3 @@ class Service(QWidget):
                 self.parent.change_window_title()
         except Exception as e:
             logger.error(f"{type(e)} {e}")
-        self.log_window.remove_logger()

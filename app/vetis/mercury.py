@@ -71,6 +71,7 @@ class Mercury:
 
     def get_available_research(self, traffic_pk: str) -> tuple[ResearchSchema, ...]:
         research_result_mapper = {
+            "указать позже": "0",
             "положительный": "1",
             "отрицательный": "2",
             "не нормируется": "3"

@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThreadPool
 from PyQt6.QtWidgets import (
     QWidget, QStatusBar, QGridLayout, QPushButton, QLineEdit, QComboBox,
     QFrame, QTableWidget, QGroupBox, QMessageBox, QTableWidgetItem
@@ -10,8 +10,11 @@ from app.database.crud.research import (
     update_special_research, get_base_research_by_enterprise_uuid, get_special_research_by_enterprise_uuid,
     update_exclude_products, get_exclude_products_by_enterprise_uuid
 )
+from app.database.crud.user import get_user
 from app.schema.research import ResearchSchema, EnterpriseForResearchSchema, SpecialResearchSchema, ExcludeProductSchema
 from app.signals import MainSignals
+from app.threads.base import Worker
+from app.vetis.mercury import Mercury
 
 
 class ResearchSettings(QWidget):
@@ -25,6 +28,7 @@ class ResearchSettings(QWidget):
         super().__init__(parent)
         self.status_bar = status_bar
         self.db_session = db_session
+        self.thread_pool = QThreadPool()
         self.signals = signals
         self.signals.enterprise_changed.connect(self.load_enterprises)
 
@@ -55,6 +59,37 @@ class ResearchSettings(QWidget):
         self.special_lab_table_frame = self.create_table_frame("Вносятся на указанную продукцию",
                                                                self.special_lab_table_columns(), self.special_lab_table,
                                                                3, 0, 1, 12)
+        self.transaction_pk_line_edit = self.create_line_edit(0, 5, 100)
+        self.download_research_button = self.create_button("Загрузить исследования",
+                                                           self.download_research_button_clicked, 0, 6)
+        self.special_to_base_research_button = self.create_button("Special -> base",
+                                                                  self.special_to_base_research_button_clicked, 0, 7)
+
+    def special_to_base_research_button_clicked(self):
+        special_research = self.get_special_research()
+        base_research = list(dict.fromkeys([ResearchSchema(**research.dict()) for research in special_research]))
+        self.fill_main_table(base_research)
+
+    def download_research_button_clicked(self):
+        self.download_research_button.setEnabled(False)
+        transaction_pk = self.transaction_pk_line_edit.text().strip()
+        user = get_user(db=self.db_session)
+        mercury = Mercury(login=user.login, password=user.password)
+        if not mercury.is_auth:
+            return
+        created_products = mercury.get_products(transaction_pk=transaction_pk)
+        available_research = []
+        for product, traffic_pk in created_products.items():
+            available_research.extend([
+                SpecialResearchSchema(product=product, **research.dict())
+                for research in mercury.get_available_research(traffic_pk)
+            ])
+        available_research.extend(self.get_special_research())
+        try:
+            self.fill_special_table(list(dict.fromkeys(available_research)))
+        except Exception as e:
+            print(f"{type(e)} {e}")
+        self.download_research_button.setEnabled(True)
 
     def create_button(self, text, callback, row, col):
         button = QPushButton(text)
@@ -222,7 +257,8 @@ class ResearchSettings(QWidget):
     def save_button_clicked(self):
         try:
             if current_base_research := self.get_base_research():
-                base_research = update_research(db=self.db_session, enterprise_uuid=self.enterprise_combobox.currentData(),
+                base_research = update_research(db=self.db_session,
+                                                enterprise_uuid=self.enterprise_combobox.currentData(),
                                                 base_research=current_base_research)
                 self.fill_main_table([ResearchSchema.from_orm(item) for item in base_research])
             if current_special_research := self.get_special_research():
@@ -286,9 +322,9 @@ class ResearchSettings(QWidget):
                 logger.error(f"{type(error)}: {error}")
                 self.status_bar.showMessage(f"Неверный ввод данных. Строка {i + 1}. Таблица main")
                 return
-        return researches
+        return list(dict.fromkeys(researches))
 
-    def get_exclude_products(self):
+    def get_exclude_products(self) -> list[ExcludeProductSchema]:
         number_of_rows = self.exclude_lab_table.rowCount()
         products = []
         for i in range(number_of_rows):
@@ -296,7 +332,7 @@ class ResearchSettings(QWidget):
                 products.append(ExcludeProductSchema(product=self.exclude_lab_table.item(i, 0).text()))
             except AttributeError as error:
                 logger.error(f"{type(error)}: {error}")
-        return products
+        return list(dict.fromkeys(products))
 
     def get_special_research(self) -> list[SpecialResearchSchema]:
         number_of_rows = self.special_lab_table.rowCount()
@@ -344,4 +380,4 @@ class ResearchSettings(QWidget):
                 logger.error(f"{type(error)}: {error}")
                 self.status_bar.showMessage(f"Неверный ввод данных. Строка {i + 1}. Таблица special")
                 return
-        return researches
+        return list(dict.fromkeys(researches))

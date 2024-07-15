@@ -1,7 +1,7 @@
 import sys
 
-from PyQt6.QtGui import QPalette, QColor
-from PyQt6.QtWidgets import QApplication, QStyleFactory
+from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import QApplication
 
 from app.database.postgre import SessionLocal
 from app.window.main import MainWindow
@@ -11,6 +11,9 @@ def main():
     db_session = SessionLocal()
     try:
         app = QApplication(sys.argv)
+        font = QFont()
+        font.setPointSize(8)
+        app.setFont(font)
         main_window = MainWindow(db_session=db_session)
         main_window.show()
         sys.exit(app.exec())
