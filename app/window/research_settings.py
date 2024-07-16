@@ -256,27 +256,31 @@ class ResearchSettings(QWidget):
 
     def save_button_clicked(self):
         try:
-            if current_base_research := self.get_base_research():
-                base_research = update_research(db=self.db_session,
-                                                enterprise_uuid=self.enterprise_combobox.currentData(),
-                                                base_research=current_base_research)
-                self.fill_main_table([ResearchSchema.from_orm(item) for item in base_research])
-            if current_special_research := self.get_special_research():
-                special_research = update_special_research(db=self.db_session,
-                                                           enterprise_uuid=self.enterprise_combobox.currentData(),
-                                                           special_research=current_special_research)
-                self.fill_special_table([SpecialResearchSchema.from_orm(item) for item in special_research])
-            if exclude_products := self.get_exclude_products():
-                exclude_products = update_exclude_products(
-                    db=self.db_session,
-                    products=exclude_products,
-                    enterprise_uuid=self.enterprise_combobox.currentData()
-                )
-                self.fill_exclude_product_table([ExcludeProductSchema.from_orm(item) for item in exclude_products])
+            current_base_research = self.get_base_research()
+            base_research = update_research(db=self.db_session,
+                                            enterprise_uuid=self.enterprise_combobox.currentData(),
+                                            research=current_base_research)
+            self.fill_main_table([ResearchSchema.from_orm(item) for item in base_research])
+
+            current_special_research = self.get_special_research()
+            special_research = update_special_research(db=self.db_session,
+                                                       enterprise_uuid=self.enterprise_combobox.currentData(),
+                                                       research=current_special_research)
+            self.fill_special_table([SpecialResearchSchema.from_orm(item) for item in special_research])
+
+            exclude_products = self.get_exclude_products()
+            exclude_products = update_exclude_products(
+                db=self.db_session,
+                products=exclude_products,
+                enterprise_uuid=self.enterprise_combobox.currentData()
+            )
+            self.fill_exclude_product_table([ExcludeProductSchema.from_orm(item) for item in exclude_products])
+
             self.status_bar.showMessage("Исследования сохранены")
         except Exception as e:
             self.status_bar.showMessage(f"{type(e)} {e}")
             logger.error(f"{type(e)} {e}")
+
 
     def get_base_research(self) -> list[ResearchSchema]:
         number_of_rows = self.main_lab_table.rowCount()

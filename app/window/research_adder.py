@@ -118,12 +118,12 @@ class ResearchAdder(QWidget):
                     available_research = mercury.get_available_research(traffic_pk)
                     for research in research_for_product:
                         if research in available_research:
-                            logger.info(f"Продукт: {product} - {research.disease} - уже было добавлено")
+                            logger.info(f"Продукт: {product} - {research.disease} - <b>уже было добавлено</b>")
                             continue
                         if mercury.push_research(traffic_pk, research):
-                            logger.info(f"Продукт: {product} - {research.disease} - добавлено")
+                            logger.info(f"Продукт: {product} - {research.disease} - <b>добавлено</b>")
                 else:
-                    logger.info(f"Продукт: {product} - не указаны лабораторные исследования")
+                    logger.info(f"Продукт: {product} - <b>не указаны лабораторные исследования</b>")
 
                 self.log_window.write("--------------------------------------------------")
 

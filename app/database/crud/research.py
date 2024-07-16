@@ -98,40 +98,40 @@ def get_exclude_products_by_enterprise_uuid(db: Session, enterprise_uuid: str):
     return exclude_products.all()
 
 
-def update_research(db: Session, enterprise_uuid: str, base_research: list[ResearchSchema]):
+def update_research(db: Session, enterprise_uuid: str, research: list[ResearchSchema]):
     db.execute(
         delete(models.BaseResearch)
         .where(models.BaseResearch.enterprise_uuid == enterprise_uuid)
     )
+    if research:
+        researches_dict = [item.model_dump() for item in research]
+        for item in researches_dict:
+            item['enterprise_uuid'] = enterprise_uuid
 
-    researches_dict = [item.model_dump() for item in base_research]
-    for item in researches_dict:
-        item['enterprise_uuid'] = enterprise_uuid
-
-    db.execute(
-        insert(models.BaseResearch)
-        .values(researches_dict)
-    )
+        db.execute(
+            insert(models.BaseResearch)
+            .values(researches_dict)
+        )
 
     db.commit()
 
     return get_base_research_by_enterprise_uuid(db, enterprise_uuid)
 
 
-def update_special_research(db: Session, enterprise_uuid: str, special_research: list[ResearchSchema]):
+def update_special_research(db: Session, enterprise_uuid: str, research: list[ResearchSchema]):
     db.execute(
         delete(models.SpecialResearch)
         .where(models.SpecialResearch.enterprise_uuid == enterprise_uuid)
     )
+    if research:
+        researches_dict = [item.model_dump() for item in research]
+        for item in researches_dict:
+            item['enterprise_uuid'] = enterprise_uuid
 
-    researches_dict = [item.model_dump() for item in special_research]
-    for item in researches_dict:
-        item['enterprise_uuid'] = enterprise_uuid
-
-    db.execute(
-        insert(models.SpecialResearch)
-        .values(researches_dict)
-    )
+        db.execute(
+            insert(models.SpecialResearch)
+            .values(researches_dict)
+        )
 
     db.commit()
 
@@ -143,14 +143,14 @@ def update_exclude_products(db: Session, products: list[ExcludeProductSchema], e
         delete(models.ExcludeProducts)
         .where(models.ExcludeProducts.enterprise_uuid == enterprise_uuid)
     )
+    if products:
+        products_dict = [item.dict() for item in products]
+        for item in products_dict:
+            item['enterprise_uuid'] = enterprise_uuid
 
-    products_dict = [item.dict() for item in products]
-    for item in products_dict:
-        item['enterprise_uuid'] = enterprise_uuid
-
-    db.execute(
-        insert(models.ExcludeProducts).values(products_dict)
-    )
+        db.execute(
+            insert(models.ExcludeProducts).values(products_dict)
+        )
 
     db.commit()
 

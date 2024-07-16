@@ -43,20 +43,19 @@ class LogWindow(QWidget):
 
     def _loguru_handler(self, message):
         record = message.record
-        level = record["level"].name
+        level = record["level"]
         log_message = record["message"]
-
-        match level:
+        match level.name:
             case "DEBUG":
-                html_message = f'<span style="color: green;">DEBUG: {log_message}</span>'
+                html_message = f'<span style="color: green;">{level.icon}: {log_message}</span>'
             case "INFO":
-                html_message = f'<span style="color: black;">INFO: {log_message}</span>'
+                html_message = f'<span style="color: black;">{level.icon}: {log_message}</span>'
             case "WARNING":
-                html_message = f'<span style="color: orange;">WARNING: {log_message}</span>'
+                html_message = f'<span style="color: orange;">{level.icon}: {log_message}</span>'
             case "ERROR":
-                html_message = f'<span style="color: red;">ERROR: {log_message}</span>'
+                html_message = f'<span style="color: red;">{level.icon}: {log_message}</span>'
             case "CRITICAL":
-                html_message = f'<span style="color: purple;">CRITICAL: {log_message}</span>'
+                html_message = f'<span style="color: purple;">{level.icon}: {log_message}</span>'
             case _:
                 html_message = log_message
 
