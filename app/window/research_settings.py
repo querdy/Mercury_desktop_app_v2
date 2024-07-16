@@ -285,15 +285,15 @@ class ResearchSettings(QWidget):
             try:
                 sampling_number = self.main_lab_table.item(i, 0).text()
             except AttributeError:
-                sampling_number = None
+                sampling_number = ""
             try:
                 sampling_date = self.main_lab_table.item(i, 1).text()
             except AttributeError:
-                sampling_date = None
+                sampling_date = ""
             try:
                 method = self.main_lab_table.item(i, 6).text()
             except AttributeError:
-                method = None
+                method = ""
             try:
                 operator = self.main_lab_table.item(i, 2).text()
                 disease = self.main_lab_table.item(i, 3).text()
