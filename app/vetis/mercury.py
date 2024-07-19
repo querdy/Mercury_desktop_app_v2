@@ -124,11 +124,7 @@ class Mercury:
                 traffic_pk = product_link.split('&')[1].split('=')[1]
                 raw_product_name = product.getText()
                 product_name = raw_product_name[:raw_product_name.rfind('-')].strip()
-
-                if product_name not in created_products:
-                    created_products[product_name] = traffic_pk
-                else:
-                    created_products[f"{product_name}_{traffic_pk}"] = traffic_pk
+                created_products[traffic_pk] = product_name
         return created_products
 
     def get_products_in_incomplete_transaction(self, transaction_pk: str) -> Dict[str, str]:
@@ -144,10 +140,7 @@ class Mercury:
             try:
                 traffic_pk = product.find("a").getText()
                 product_name = product.find_all('td')[2].getText().strip()
-                if created_products.get(product_name) is None:
-                    created_products.update({product_name: traffic_pk})
-                else:
-                    created_products.update({f"{product_name}_{traffic_pk}": traffic_pk})
+                created_products[traffic_pk] = product_name
             except AttributeError:
                 continue
         return created_products

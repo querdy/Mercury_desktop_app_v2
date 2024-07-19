@@ -109,7 +109,7 @@ class ResearchAdder(QWidget):
             else:
                 logger.info("Получена продукция из обычной транзакции")
 
-            for product, traffic_pk in created_products.items():
+            for traffic_pk, product in created_products.items():
                 research_for_product = self.get_research_for_product(
                     product, base_research, exclude_products, current_enterprise_uuid
                 )

@@ -13,7 +13,6 @@ from app.database.crud.research import (
 from app.database.crud.user import get_user
 from app.schema.research import ResearchSchema, EnterpriseForResearchSchema, SpecialResearchSchema, ExcludeProductSchema
 from app.signals import MainSignals
-from app.threads.base import Worker
 from app.vetis.mercury import Mercury
 
 
@@ -88,7 +87,7 @@ class ResearchSettings(QWidget):
         try:
             self.fill_special_table(list(dict.fromkeys(available_research)))
         except Exception as e:
-            print(f"{type(e)} {e}")
+            logger.error(f"{type(e)} {e}")
         self.download_research_button.setEnabled(True)
 
     def create_button(self, text, callback, row, col):
@@ -177,13 +176,13 @@ class ResearchSettings(QWidget):
             if enterprise:
                 create_enterprise(db=self.db_session, enterprise=EnterpriseForResearchSchema(name=enterprise))
         except Exception as e:
-            print(type(e), e)
+            logger.error(f"{type(e)}, {e}")
         finally:
             self.new_enterprise.setText("")
             try:
                 self.signals.enterprise_changed.emit()
             except Exception as e:
-                print(f"{type(e)} {e}")
+                logger.error(f"{type(e)} {e}")
 
     def delete_enterprise_button_clicked(self):
         reply = QMessageBox.question(self, 'Подтверждение', 'Вы уверены?',
