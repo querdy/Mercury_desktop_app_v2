@@ -19,9 +19,9 @@ engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_threa
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-if not os.path.exists(database_path):
-    Base.metadata.create_all(bind=engine)
-    run_migrations()
+# if not os.path.exists(database_path):
+#     Base.metadata.create_all(bind=engine)
+#     run_migrations()
 
 
 def get_db():

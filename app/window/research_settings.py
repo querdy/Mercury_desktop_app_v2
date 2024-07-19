@@ -78,7 +78,7 @@ class ResearchSettings(QWidget):
             return
         created_products = mercury.get_products(transaction_pk=transaction_pk)
         available_research = []
-        for product, traffic_pk in created_products.items():
+        for traffic_pk, product in created_products.items():
             available_research.extend([
                 SpecialResearchSchema(product=product, **research.dict())
                 for research in mercury.get_available_research(traffic_pk)

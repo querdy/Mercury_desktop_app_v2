@@ -80,11 +80,12 @@ class Mercury:
             '_action': 'showRealTrafficVUForm',
             'trafficPk': traffic_pk
         }
-        response = self.session.fetch(self.service_url, data=data)
+        response = self.session.fetch(self.service_url, params=data)
         soup = BeautifulSoup(response.content, 'html5lib')
-        research_table = soup.find(
+        research_table = (soup.find(
             "h4", text=re.compile("Лабораторные исследования:")
-        ).find_next("table").find_next("table")
+        ))
+        research_table = research_table.find_next("table").find_next("table")
         if research_table is None:
             return ()
         available_research = tuple(
