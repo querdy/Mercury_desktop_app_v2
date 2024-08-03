@@ -1,5 +1,6 @@
 from PyQt6.QtCore import Qt, QThreadPool
-from PyQt6.QtWidgets import QWidget, QStatusBar, QGridLayout, QPushButton, QLineEdit, QComboBox, QGroupBox, QCheckBox
+from PyQt6.QtWidgets import QWidget, QStatusBar, QGridLayout, QPushButton, QLineEdit, QComboBox, QGroupBox, QCheckBox, \
+    QLabel
 from loguru import logger
 from sqlalchemy.orm import Session
 
@@ -42,13 +43,23 @@ class ResearchAdder(QWidget):
         self.api_frame = QGroupBox("Добавить лабораторные исследования")
         self.frame_layout = QGridLayout()
 
-        self.transaction_pk_line_edit = self.create_line_edit(0, 0, 250)
-        self.start_button = self.create_button("Начать", self.start_button_clicked, 0, 2, 1, 1)
-        self.all_lab_checkbox = self.create_checkbox("Вносить базовые исследования даже если есть специальные", 0, 3, 1,
-                                                     2)
+        self.traffic_label = self.create_label("Запись журнала:", 0, 0)
+        self.traffic_pk_line_edit = self.create_line_edit(0, 1, 150)
+        self.transaction_label = self.create_label("Транзакция:", 0, 2)
+        self.transaction_pk_line_edit = self.create_line_edit(0, 3, 150)
+        self.start_button = self.create_button("Начать", self.start_button_clicked, 0, 5, 1, 1)
+        self.all_lab_checkbox = self.create_checkbox("Вносить базовые исследования даже если есть специальные",
+                                                     0, 6, 1, 2)
 
         self.api_frame.setLayout(self.frame_layout)
         self.layout.addWidget(self.api_frame, 0, 0, 1, 2)
+
+    def create_label(self, text: str, row, col, rowspan=1, colspan=1):
+        label = QLabel()
+        label.setText(text)
+        label.setMaximumWidth(75)
+        self.frame_layout.addWidget(label, row, col, rowspan, colspan)
+        return label
 
     def create_checkbox(self, message, row, col, rowspan=1, colspan=1):
         checkbox = QCheckBox(message)
@@ -72,11 +83,13 @@ class ResearchAdder(QWidget):
         self.start_button.setEnabled(False)
         self.all_lab_checkbox.setEnabled(False)
         self.transaction_pk_line_edit.setEnabled(False)
+        self.traffic_pk_line_edit.setEnabled(False)
         self.enterprise_combobox.setEnabled(False)
         worker = Worker(self.research_adder)
         worker.signals.finished.connect(lambda: self.start_button.setEnabled(True))
         worker.signals.finished.connect(lambda: self.all_lab_checkbox.setEnabled(True))
         worker.signals.finished.connect(lambda: self.transaction_pk_line_edit.setEnabled(True))
+        worker.signals.finished.connect(lambda: self.traffic_pk_line_edit.setEnabled(True))
         worker.signals.finished.connect(lambda: self.enterprise_combobox.setEnabled(True))
         worker.signals.finished.connect(lambda: self.log_window.remove_logger())
         self.thread_pool.start(worker)
@@ -85,7 +98,10 @@ class ResearchAdder(QWidget):
     def research_adder(self):
         current_enterprise_uuid = self.enterprise_combobox.currentData()
         transaction_pk = self.transaction_pk_line_edit.text().strip()
-
+        traffic_pk = self.traffic_pk_line_edit.text().strip()
+        if all([bool(traffic_pk), bool(transaction_pk)]):
+            logger.warning(f"Необходимо указать что-то одно: номер транзакции или номер записи журнала")
+            return
         try:
             user = get_user(db=self.db_session)
             mercury = Mercury(login=user.login, password=user.password)
@@ -97,18 +113,26 @@ class ResearchAdder(QWidget):
 
             exclude_products = get_exclude_products_by_enterprise_uuid(self.db_session, current_enterprise_uuid)
             exclude_products = {item.product for item in exclude_products}
-
-            created_products = mercury.get_products(transaction_pk=transaction_pk)
-            if not created_products:
-                created_products = mercury.get_products_in_incomplete_transaction(transaction_pk=transaction_pk)
-                if created_products:
-                    logger.info("Получена продукция из транзакции незавершенного производства")
+            created_products = {}
+            if transaction_pk:
+                created_products = mercury.get_products(transaction_pk=transaction_pk)
+                if not created_products:
+                    created_products = mercury.get_products_in_incomplete_transaction(transaction_pk=transaction_pk)
+                    if created_products:
+                        logger.info("Получена продукция из транзакции незавершенного производства")
+                    else:
+                        logger.warning("Не удалось обнаружить выработанную продукцию. "
+                                       "Возможно, номер транзакции указан неверно")
                 else:
-                    logger.info("Не удалось обнаружить выработанную продукцию. "
-                                "Возможно, номер транзакции указан неверно")
+                    logger.info("Получена продукция из обычной транзакции")
+            elif traffic_pk:
+                try:
+                    created_products = {traffic_pk: mercury.get_product_name_from_traffic(traffic_pk)}
+                except AttributeError:
+                    logger.warning("Не удалось обнаружить выработанную продукцию. "
+                                   "Возможно, номер записи журнала указан неверно")
             else:
-                logger.info("Получена продукция из обычной транзакции")
-
+                logger.warning(f"Не указан номер транзакции или номер записи журнала")
             for traffic_pk, product in created_products.items():
                 research_for_product = self.get_research_for_product(
                     product, base_research, exclude_products, current_enterprise_uuid
@@ -153,4 +177,4 @@ class ResearchAdder(QWidget):
         self.enterprise_combobox.setMaximumWidth(250)
         for item in enterprises:
             self.enterprise_combobox.addItem(item.name, item.uuid)
-        self.frame_layout.addWidget(self.enterprise_combobox, 0, 1, 1, 1)
+        self.frame_layout.addWidget(self.enterprise_combobox, 0, 4, 1, 1)

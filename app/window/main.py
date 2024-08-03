@@ -1,6 +1,5 @@
-from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QMainWindow, QTabWidget, QTextEdit, QGridLayout, QWidget
+from PyQt6.QtWidgets import QMainWindow, QTabWidget, QGridLayout, QWidget
 from sqlalchemy.orm import Session
 
 from app.database.crud.user import get_user
@@ -14,7 +13,7 @@ class MainWindow(QMainWindow):
     def __init__(self, db_session: Session, parent=None):
         super().__init__(parent)
         self.db_session = db_session
-        self.setFixedSize(1280, 720)
+        # self.setFixedSize(1280, 720)
         self.setWindowIcon(QIcon('favicon.ico'))
         self.status_bar = self.statusBar()
         self.signals = MainSignals()

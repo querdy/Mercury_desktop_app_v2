@@ -69,6 +69,22 @@ class Mercury:
             return self.auth(login, password)
         return True  # Если куки прочитаны успешно или были успешно авторизованы
 
+    def get_product_name_from_traffic(self, traffic_pk: str) -> str:
+        data = {
+            '_action': 'showRealTrafficVUForm',
+            'trafficPk': traffic_pk
+        }
+        response = self.session.fetch(self.service_url, params=data)
+        soup = BeautifulSoup(response.content, 'html5lib')
+        product_info_table = soup.find(
+            "h4", text=re.compile("Информация о продукции:")
+        ).find_next("table")
+        product_name = product_info_table.find(
+            "td", text=re.compile("Наименование продукции:")
+        ).find_next("td").text.strip()
+        return product_name
+
+
     def get_available_research(self, traffic_pk: str) -> tuple[ResearchSchema, ...]:
         research_result_mapper = {
             "указать позже": "0",
