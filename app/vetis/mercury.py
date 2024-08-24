@@ -5,7 +5,8 @@ import httpx
 from bs4 import BeautifulSoup, Tag
 from loguru import logger
 
-from app.schema.research import ResearchSchema, SpecialResearchSchema
+from app.schema.immunization import ImmunizationSchema
+from app.schema.research import ResearchSchema
 from app.vetis.base import BaseSession
 
 
@@ -76,14 +77,42 @@ class Mercury:
         }
         response = self.session.fetch(self.service_url, params=data)
         soup = BeautifulSoup(response.content, 'html5lib')
-        product_info_table = soup.find(
-            "h4", text=re.compile("Информация о продукции:")
-        ).find_next("table")
-        product_name = product_info_table.find(
-            "td", text=re.compile("Наименование продукции:")
-        ).find_next("td").text.strip()
+        product_info = self._get_tag_by_name_and_string(soup, 'h4', 'Информация о продукции:')
+        product_info_table = product_info.find_next("table")
+        product_name_tag = self._get_tag_by_name_and_string(product_info_table, 'td', 'Наименование продукции:')
+        product_name = product_name_tag.find_next("td").text.strip()
         return product_name
 
+    def get_available_immunization(self, traffic_pk: str) -> tuple[ImmunizationSchema, ...]:
+        immunization_mapper = {
+            "иммунизация": "1",
+            "обработка": "0",
+        }
+        data = {
+            '_action': 'showRealTrafficVUForm',
+            'trafficPk': traffic_pk
+        }
+        response = self.session.fetch(self.service_url, params=data)
+        soup = BeautifulSoup(response.content, 'html5lib')
+        immunization_table = self._get_tag_by_name_and_string(
+            soup, 'h4', 'Сведения об иммунизации/обработке против паразитов:'
+        )
+        immunization_table = immunization_table.find_next("table").find_next("table")
+        if immunization_table is None:
+            return ()
+        available_immunization = tuple(
+            ImmunizationSchema(
+                operation_type=immunization_mapper.get(row[0].text),
+                illness=row[1].text,
+                operation_date=row[2].text,
+                vaccine_name=row[3].text,
+                vaccine_serial=row[4].text,
+                vaccine_date_to=row[5].text,
+            )
+            for immunization in immunization_table.find_all("tr", {'class': ['first', 'second']})
+            if (row := immunization.find_all("td"))
+        )
+        return available_immunization
 
     def get_available_research(self, traffic_pk: str) -> tuple[ResearchSchema, ...]:
         research_result_mapper = {
@@ -98,9 +127,7 @@ class Mercury:
         }
         response = self.session.fetch(self.service_url, params=data)
         soup = BeautifulSoup(response.content, 'html5lib')
-        research_table = (soup.find(
-            "h4", text=re.compile("Лабораторные исследования:")
-        ))
+        research_table = self._get_tag_by_name_and_string(soup, 'h4', 'Лабораторные исследования:')
         research_table = research_table.find_next("table").find_next("table")
         if research_table is None:
             return ()
@@ -120,6 +147,14 @@ class Mercury:
             if (row := research.find_all("td")) and research_result_mapper[row[7].text] != 0
         )
         return available_research
+
+    @staticmethod
+    def _get_tag_by_name_and_string(soup: Tag, name: str, string: str = ""):
+        pattern = re.compile(string)
+        tags = soup.find_all(name)
+        for tag in tags:
+            if pattern.search(tag.get_text()):
+                return tag
 
     def get_products(self, transaction_pk: str) -> Dict[str, str]:
         data = {
@@ -150,7 +185,7 @@ class Mercury:
             'transactionPk': transaction_pk,
         }
         response = self.session.fetch(self.service_url, data=data)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = BeautifulSoup(response.content, 'htmls5lib')
         all_products = soup.find_all("tr")
         created_products = {}
         for product in all_products:
@@ -163,13 +198,12 @@ class Mercury:
         return created_products
 
     def get_mercury_username(self) -> str:
-        url = 'https://mercury.vetrf.ru/gve/operatorui'
-        mercury_page = self.session.fetch(url)
+        mercury_page = self.session.fetch(self.service_url)
         soup = BeautifulSoup(mercury_page.content, 'html5lib')
-        user_name = soup.find("div", {"id": "loggedas"}).find("b").getText().split('(')[0].strip()
-        return user_name
+        username = soup.find("div", {"id": "loggedas"}).find("b").getText().split('(')[0].strip()
+        return username
 
-    def push_research(self, traffic_pk: str, research: ResearchSchema):
+    def push_research(self, traffic_pk: str, research: ResearchSchema) -> bool:
         data = {
             'actNumber': research.sampling_number,
             'actDate': research.sampling_date,
@@ -186,12 +220,62 @@ class Mercury:
         response = self.session.fetch(self.service_url, data=data)
         return response.status_code == 200
 
-    def is_traffic_enabled(self, traffic_pk: str):
+    def push_immunization(self, traffic_pk: str, immunization: ImmunizationSchema) -> bool:
         data = {
-            '_action': 'showTransactionForm',
+            'operationType': immunization.operation_type,
+            'illness': immunization.illness,
+            'operationDate': immunization.operation_date,
+            'vaccineName': immunization.vaccine_name,
+            'vaccineSerial': immunization.vaccine_serial,
+            'vaccineDateTo': immunization.vaccine_date_to,
+            '_action': 'addRealTrafficVUOperation',
+            'realTrafficVU.pk': traffic_pk,
+            'realTrafficVU': traffic_pk
+        }
+        response = self.session.fetch(self.service_url, data=data)
+        return response.status_code == 200
+
+    def choose_enterprise(self, enterprise_pk: str):
+        data = {
+            'commonEnterpriseNumber': enterprise_pk,
+            '_action': 'chooseServicedEnterprise'
+        }
+        response = self.session.fetch(self.service_url, data=data)
+        return response.status_code == 200
+
+    def is_traffic_enabled_for_lab(self, traffic_pk: str) -> bool:
+        data = {
+            '_action': 'addLaboratory',
             'trafficPk': traffic_pk
         }
-        return self.session.fetch(self.service_url, data=data).status_code == 200
+        response = self.session.fetch(self.service_url, data=data)
+        return response.status_code == 200
+
+    def is_traffic_enabled_for_immunization(self, traffic_pk: str) -> bool:
+        data = {
+            '_action': 'showRealTrafficVUForm',
+            'trafficPk': traffic_pk
+        }
+        response = self.session.fetch(self.service_url, params=data)
+        soup = BeautifulSoup(response.content, 'html5lib')
+        immunization_table = self._get_tag_by_name_and_string(
+            soup, 'h4', 'Сведения об иммунизации/обработке против паразитов:'
+        )
+        return immunization_table is not None
+
+    def get_real_traffic_pk(self, traffic_pk: str) -> str:
+        data = {
+            '_action': 'showRealTrafficVUForm',
+            'trafficPk': traffic_pk
+        }
+        response = self.session.fetch(self.service_url, params=data)
+        soup = BeautifulSoup(response.content, 'html5lib')
+        real_traffic_tag = soup.find("input", {'name': 'realTrafficPk'})
+        if real_traffic_tag is not None:
+            real_traffic_pk = real_traffic_tag.get('value')
+        else:
+            real_traffic_pk = traffic_pk
+        return real_traffic_pk
 
     def save_cookies(self) -> None:
         self.session.save_cookies()

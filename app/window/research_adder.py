@@ -4,9 +4,13 @@ from PyQt6.QtWidgets import QWidget, QStatusBar, QGridLayout, QPushButton, QLine
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from app.database.crud.research import get_all_enterprise, get_base_research_by_enterprise_uuid, \
+from app.database.crud.enterprise import get_all_enterprise, get_enterprise_by_uuid
+from app.database.crud.immunization import get_base_immunization_by_enterprise_uuid, \
+    get_special_immunization_for_product
+from app.database.crud.research import get_base_research_by_enterprise_uuid, \
     get_exclude_products_by_enterprise_uuid, get_special_research_for_product
 from app.database.crud.user import get_user
+from app.schema.immunization import ImmunizationSchema, SpecialImmunizationSchema
 from app.schema.research import ResearchSchema, SpecialResearchSchema
 from app.signals import MainSignals
 from app.threads.base import Worker
@@ -104,15 +108,25 @@ class ResearchAdder(QWidget):
             return
         try:
             user = get_user(db=self.db_session)
+            if user is None:
+                logger.warning(f"Не указан пользователь меркурия для авторизации")
+                return
             mercury = Mercury(login=user.login, password=user.password)
             if not mercury.is_auth:
                 return
+
+            enterprise = get_enterprise_by_uuid(db=self.db_session, enterprise_uuid=current_enterprise_uuid)
+            mercury.choose_enterprise(enterprise_pk=enterprise.pk)
 
             base_research = get_base_research_by_enterprise_uuid(self.db_session, current_enterprise_uuid)
             base_research = [ResearchSchema.from_orm(item) for item in base_research]
 
             exclude_products = get_exclude_products_by_enterprise_uuid(self.db_session, current_enterprise_uuid)
             exclude_products = {item.product for item in exclude_products}
+
+            base_immunization = get_base_immunization_by_enterprise_uuid(self.db_session, current_enterprise_uuid)
+            base_immunization = [ImmunizationSchema.from_orm(item) for item in base_immunization]
+
             created_products = {}
             if transaction_pk:
                 created_products = mercury.get_products(transaction_pk=transaction_pk)
@@ -134,21 +148,41 @@ class ResearchAdder(QWidget):
             else:
                 logger.warning(f"Не указан номер транзакции или номер записи журнала")
             for traffic_pk, product in created_products.items():
-                research_for_product = self.get_research_for_product(
-                    product, base_research, exclude_products, current_enterprise_uuid
-                )
+                real_traffic_pk = mercury.get_real_traffic_pk(traffic_pk)
+                immunization_for_product = self.get_immunization_for_product(
+                    product, base_immunization, current_enterprise_uuid)
+                if immunization_for_product:
+                    if mercury.is_traffic_enabled_for_immunization(real_traffic_pk):
+                        available_immunization_for_product = mercury.get_available_immunization(real_traffic_pk)
+                        for immunization in immunization_for_product:
+                            if immunization in available_immunization_for_product:
+                                logger.info(f"Продукт: {product} - иммунизация {immunization.illness} "
+                                            f"- <b>уже было добавлено</b>")
+                                continue
+                            if immunization_added := mercury.push_immunization(real_traffic_pk, immunization):
+                                logger.info(
+                                    f"Продукт: {product} - иммунизация {immunization.illness} - <b>добавлено</b>")
+                    else:
+                        logger.info(f'Запись {product} - <b>невозможно добавить иммунизацию</b>. '
+                                    f'Вероятно, запись журнала - не живое животное')
 
-                if research_for_product and mercury.is_traffic_enabled(traffic_pk):
-                    available_research = mercury.get_available_research(traffic_pk)
-                    for research in research_for_product:
-                        if research in available_research:
-                            logger.info(f"Продукт: {product} - {research.disease} - <b>уже было добавлено</b>")
-                            continue
-                        if mercury.push_research(traffic_pk, research):
-                            logger.info(f"Продукт: {product} - {research.disease} - <b>добавлено</b>")
+                if mercury.is_traffic_enabled_for_lab(real_traffic_pk):
+                    research_for_product = self.get_research_for_product(
+                        product, base_research, exclude_products, current_enterprise_uuid
+                    )
+                    if research_for_product:
+                        available_research = mercury.get_available_research(real_traffic_pk)
+                        for research in research_for_product:
+                            if research in available_research:
+                                logger.info(f"Продукт: {product} - исследование {research.disease} "
+                                            f"- <b>уже было добавлено</b>")
+                                continue
+                            if research_added := mercury.push_research(traffic_pk, research):
+                                logger.info(f"Продукт: {product} - исследование {research.disease} - <b>добавлено</b>")
+                    else:
+                        logger.info(f"Продукт: {product} - <b>не указаны лабораторные исследования</b>")
                 else:
-                    logger.info(f"Продукт: {product} - <b>не указаны лабораторные исследования</b>")
-
+                    logger.info(f'Продукт: {product} - <b>запись не активна</b>')
                 self.log_window.write("--------------------------------------------------")
 
         except Exception as e:
@@ -170,6 +204,20 @@ class ResearchAdder(QWidget):
         elif self.all_lab_checkbox.isChecked() and product not in exclude_products:
             research_for_product.extend(base_research)
         return research_for_product
+
+    def get_immunization_for_product(
+            self,
+            product: str,
+            base_immunization: list[ImmunizationSchema],
+            enterprise_uuid: str
+    ) -> list[ImmunizationSchema]:
+        immunization_for_product = []
+        special_immunization = get_special_immunization_for_product(self.db_session, enterprise_uuid, product)
+        special_immunization = [SpecialImmunizationSchema.from_orm(item) for item in special_immunization]
+        immunization_for_product.extend(special_immunization)
+        if not immunization_for_product or self.all_lab_checkbox.isChecked():
+            immunization_for_product.extend(base_immunization)
+        return immunization_for_product
 
     def load_enterprises(self):
         enterprises = get_all_enterprise(db=self.db_session)

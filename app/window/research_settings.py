@@ -1,17 +1,22 @@
+import re
+
 from PyQt6.QtCore import Qt, QThreadPool
 from PyQt6.QtWidgets import (
     QWidget, QStatusBar, QGridLayout, QPushButton, QLineEdit, QComboBox,
-    QFrame, QTableWidget, QGroupBox, QMessageBox, QTableWidgetItem
+    QFrame, QTableWidget, QGroupBox, QMessageBox, QTableWidgetItem, QLabel
 )
 from loguru import logger
 from sqlalchemy.orm import Session
-from app.database.crud.research import (
-    create_enterprise, get_all_enterprise, delete_enterprise, update_research,
-    update_special_research, get_base_research_by_enterprise_uuid, get_special_research_by_enterprise_uuid,
-    update_exclude_products, get_exclude_products_by_enterprise_uuid
-)
+
+from app.database.crud.enterprise import create_enterprise, delete_enterprise, get_all_enterprise
+from app.database.crud.research import (update_research,
+                                        update_special_research, get_base_research_by_enterprise_uuid,
+                                        get_special_research_by_enterprise_uuid,
+                                        update_exclude_products, get_exclude_products_by_enterprise_uuid
+                                        )
 from app.database.crud.user import get_user
-from app.schema.research import ResearchSchema, EnterpriseForResearchSchema, SpecialResearchSchema, ExcludeProductSchema
+from app.schema.enterprise import EnterpriseSchema
+from app.schema.research import ResearchSchema, SpecialResearchSchema, ExcludeProductSchema
 from app.signals import MainSignals
 from app.vetis.mercury import Mercury
 
@@ -45,11 +50,14 @@ class ResearchSettings(QWidget):
 
     def init_ui(self):
         self.save_button = self.create_button("Сохранить", self.save_button_clicked, 0, 0)
-        self.new_enterprise = self.create_line_edit(0, 2, 100)
-        self.add_enterprise_button = self.create_button("Добавить предприятие", self.add_enterprise_button_clicked, 0,
-                                                        3)
-        self.delete_enterprise_button = self.create_button("Удалить предприятие", self.delete_enterprise_button_clicked,
-                                                           0, 4)
+        self.new_enterprise_label = self.create_label('Название', 0, 2, 55)
+        self.new_enterprise = self.create_line_edit(0, 3, 100)
+        self.new_enterprise_pk_label = self.create_label('RU', 0, 4, 15)
+        self.new_enterprise_pk = self.create_line_edit(0, 5, 100)
+        self.add_enterprise_button = self.create_button("+ предприятие", self.add_enterprise_button_clicked, 0,
+                                                        6)
+        self.delete_enterprise_button = self.create_button("- предприятие", self.delete_enterprise_button_clicked,
+                                                           0, 7)
 
         self.main_lab_table_frame = self.create_table_frame("main", self.main_lab_table_columns(), self.main_lab_table,
                                                             2, 0, 1, 9)
@@ -58,11 +66,11 @@ class ResearchSettings(QWidget):
         self.special_lab_table_frame = self.create_table_frame("Вносятся на указанную продукцию",
                                                                self.special_lab_table_columns(), self.special_lab_table,
                                                                3, 0, 1, 12)
-        self.transaction_pk_line_edit = self.create_line_edit(0, 5, 100)
+        self.transaction_pk_line_edit = self.create_line_edit(0, 8, 100)
         self.download_research_button = self.create_button("Загрузить исследования",
-                                                           self.download_research_button_clicked, 0, 6)
+                                                           self.download_research_button_clicked, 0, 9)
         self.special_to_base_research_button = self.create_button("Special -> base",
-                                                                  self.special_to_base_research_button_clicked, 0, 7)
+                                                                  self.special_to_base_research_button_clicked, 0, 10)
 
     def special_to_base_research_button_clicked(self):
         special_research = self.get_special_research()
@@ -89,6 +97,12 @@ class ResearchSettings(QWidget):
         except Exception as e:
             logger.error(f"{type(e)} {e}")
         self.download_research_button.setEnabled(True)
+
+    def create_label(self, text, row, col, maxsize: int = 1000):
+        label = QLabel(text)
+        label.setMaximumWidth(maxsize)
+        self.layout.addWidget(label, row, col, 1, 1)
+        return label
 
     def create_button(self, text, callback, row, col):
         button = QPushButton(text)
@@ -172,13 +186,21 @@ class ResearchSettings(QWidget):
 
     def add_enterprise_button_clicked(self):
         try:
-            enterprise = self.new_enterprise.text()
-            if enterprise:
-                create_enterprise(db=self.db_session, enterprise=EnterpriseForResearchSchema(name=enterprise))
+            enterprise = self.new_enterprise.text().strip()
+            enterprise_pk = re.sub(r'\D', '', self.new_enterprise_pk.text())
+            if enterprise and enterprise_pk:
+                create_enterprise(
+                    db=self.db_session,
+                    enterprise=EnterpriseSchema(name=enterprise, pk=enterprise_pk)
+                )
+            else:
+                self.status_bar.showMessage(f'Необходимо указать название шаблона и номер предприятия в реестре')
+
         except Exception as e:
             logger.error(f"{type(e)}, {e}")
         finally:
             self.new_enterprise.setText("")
+            self.new_enterprise_pk.setText("")
             try:
                 self.signals.enterprise_changed.emit()
             except Exception as e:
@@ -279,7 +301,6 @@ class ResearchSettings(QWidget):
         except Exception as e:
             self.status_bar.showMessage(f"{type(e)} {e}")
             logger.error(f"{type(e)} {e}")
-
 
     def get_base_research(self) -> list[ResearchSchema]:
         number_of_rows = self.main_lab_table.rowCount()

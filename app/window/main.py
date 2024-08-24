@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database.crud.user import get_user
 from app.signals import MainSignals
+from app.window.immunization_settings import ImmunizationSettings
 from app.window.research_adder import ResearchAdder
 from app.window.research_settings import ResearchSettings
 from app.window.service import Service
@@ -27,11 +28,18 @@ class MainWindow(QMainWindow):
             self.statusBar(), db_session=self.db_session, signals=self.signals,
             parent=self
         )
+
+        self.immunization_settings = ImmunizationSettings(
+            self.statusBar(), db_session=self.db_session, signals=self.signals,
+            parent=self
+        )
+
         self.service = Service(self.statusBar(), db_session=self.db_session, parent=self)
 
         tab_widget = QTabWidget()
         tab_widget.addTab(self.research_adder, "Внесение")
-        tab_widget.addTab(self.research_settings, "Редактирование")
+        tab_widget.addTab(self.research_settings, "Настройки лаб. иссл.")
+        tab_widget.addTab(self.immunization_settings, "Настройки иммун./обраб.")
         tab_widget.addTab(self.service, "Сервис")
 
         main_widget = QWidget()
@@ -44,7 +52,7 @@ class MainWindow(QMainWindow):
 
     def change_window_title(self):
         base_window_title = "Veterinary events adder"
-        version = "v1.0"
+        version = "v1.1"
         self.setWindowTitle(f"{base_window_title} {version}")
         user = get_user(self.db_session)
         if user is None:

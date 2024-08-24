@@ -62,8 +62,11 @@ class SpecialResearchSchema(ResearchSchema):
     product: str
 
     @field_validator('product')
-    def _product(cls, value):
-        return value.strip()
+    def validate_string_length(cls, value):
+        value = value.strip()
+        if len(value) > 255:
+            raise ValueError('Длина строки не должна превышать 255 символов')
+        return value
 
 
 class ExcludeProductSchema(BaseModel):
@@ -79,14 +82,3 @@ class ExcludeProductSchema(BaseModel):
         return (
             self.product == other.product
         )
-
-
-class EnterpriseForResearchSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    uuid: Optional[UUID] = None
-    name: str
-    base_research: Optional[list[ResearchSchema]] = None
-    product_exclude_from_base: Optional[list[str]] = None
-    special_research: Optional[list[SpecialResearchSchema]] = None
-

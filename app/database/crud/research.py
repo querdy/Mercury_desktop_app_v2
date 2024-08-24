@@ -1,60 +1,8 @@
-from sqlalchemy import insert, select, delete, update
+from sqlalchemy import insert, select, delete
 from sqlalchemy.orm import Session
 
 from app.database import models
-from app.database.models import BaseResearch
-from app.schema.research import EnterpriseForResearchSchema, ResearchSchema, ExcludeProductSchema
-
-
-def create_enterprise(db: Session, enterprise: EnterpriseForResearchSchema):
-    enterprise = db.scalar(
-        insert(models.EnterpriseForResearch)
-        .values(
-            name=enterprise.name
-        )
-        .returning(models.EnterpriseForResearch)
-    )
-    db.commit()
-    return enterprise
-
-
-def get_all_enterprise(db: Session):
-    enterprises = db.scalars(
-        select(models.EnterpriseForResearch)
-        .order_by(models.EnterpriseForResearch.name)
-    )
-    return enterprises.all()
-
-
-def get_enterprise_by_uuid(db: Session, enterprise_uuid: str):
-    enterprise = db.scalar(
-        select(models.EnterpriseForResearch)
-        .where(models.EnterpriseForResearch.uuid == enterprise_uuid)
-    )
-    return enterprise
-
-
-def delete_enterprise(db: Session, enterprise_uuid: str):
-    try:
-        db.execute(
-            delete(models.BaseResearch)
-            .where(models.BaseResearch.enterprise_uuid == enterprise_uuid)
-        )
-        db.execute(
-            delete(models.SpecialResearch)
-            .where(models.SpecialResearch.enterprise_uuid == enterprise_uuid)
-        )
-        db.execute(
-            delete(models.ExcludeProducts)
-            .where(models.ExcludeProducts.enterprise_uuid == enterprise_uuid)
-        )
-        db.execute(
-            delete(models.EnterpriseForResearch)
-            .where(models.EnterpriseForResearch.uuid == enterprise_uuid)
-        )
-        db.commit()
-    except Exception as e:
-        print(f"{type(e)} {e}")
+from app.schema.research import ResearchSchema, ExcludeProductSchema
 
 
 def delete_research_by_enterprise_uuid(db: Session, enterprise_uuid: str):
