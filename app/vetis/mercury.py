@@ -185,7 +185,7 @@ class Mercury:
             'transactionPk': transaction_pk,
         }
         response = self.session.fetch(self.service_url, data=data)
-        soup = BeautifulSoup(response.content, 'htmls5lib')
+        soup = BeautifulSoup(response.content, 'html5lib')
         all_products = soup.find_all("tr")
         created_products = {}
         for product in all_products:

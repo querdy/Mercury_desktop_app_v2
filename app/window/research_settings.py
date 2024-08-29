@@ -82,20 +82,24 @@ class ResearchSettings(QWidget):
         transaction_pk = self.transaction_pk_line_edit.text().strip()
         user = get_user(db=self.db_session)
         mercury = Mercury(login=user.login, password=user.password)
+        self.status_bar.showMessage(f"auth: {mercury.is_auth}")
         if not mercury.is_auth:
             return
         created_products = mercury.get_products(transaction_pk=transaction_pk)
+        self.status_bar.showMessage(f"created products: {created_products}")
         available_research = []
         for traffic_pk, product in created_products.items():
             available_research.extend([
                 SpecialResearchSchema(product=product, **research.dict())
                 for research in mercury.get_available_research(traffic_pk)
             ])
+        self.status_bar.showMessage(f"available research: {available_research}")
         available_research.extend(self.get_special_research())
         try:
             self.fill_special_table(list(dict.fromkeys(available_research)))
         except Exception as e:
             logger.error(f"{type(e)} {e}")
+            self.status_bar.showMessage(f"{type(e)} {e}")
         self.download_research_button.setEnabled(True)
 
     def create_label(self, text, row, col, maxsize: int = 1000):
