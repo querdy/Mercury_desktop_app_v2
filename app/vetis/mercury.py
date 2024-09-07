@@ -11,11 +11,11 @@ from app.vetis.base import BaseSession
 
 
 class Mercury:
-    def __init__(self, login: str, password: str):
+    def __init__(self, login: str, password: str, clean: bool = False):
         self.session = BaseSession()
         self.service_url = 'https://mercury.vetrf.ru/gve/operatorui'
         self.user = None
-        self.is_auth = self.login(login, password)
+        self.is_auth = self.login(login, password, clean)
 
     def auth(self, login: str, password: str) -> bool:
         try:
@@ -65,8 +65,8 @@ class Mercury:
             logger.warning("Cookies are not valid. Cleared.")
             return False
 
-    def login(self, login: str, password: str) -> bool:
-        if not self.check_cookies_validity():
+    def login(self, login: str, password: str, clean: bool = False) -> bool:
+        if clean or not self.check_cookies_validity():
             return self.auth(login, password)
         return True  # Если куки прочитаны успешно или были успешно авторизованы
 
@@ -156,7 +156,7 @@ class Mercury:
             if pattern.search(tag.get_text()):
                 return tag
 
-    def get_products(self, transaction_pk: str) -> Dict[str, str]:
+    def get_products_from_finalize_transaction(self, transaction_pk: str) -> Dict[str, str]:
         data = {
             '_action': 'showTransactionForm',
             'transactionPk': transaction_pk,
@@ -169,7 +169,6 @@ class Mercury:
 
         all_products = soup.find_all('a')
         created_products = {}
-
         for product in all_products:
             product_link = product.get('href')
             if 'listProduced&stateMenu=2' in product_link:
@@ -179,7 +178,7 @@ class Mercury:
                 created_products[traffic_pk] = product_name
         return created_products
 
-    def get_products_in_incomplete_transaction(self, transaction_pk: str) -> Dict[str, str]:
+    def get_products_from_incomplete_transaction(self, transaction_pk: str) -> Dict[str, str]:
         data = {
             '_action': 'listProduceOperationAjax',
             'transactionPk': transaction_pk,
@@ -276,6 +275,23 @@ class Mercury:
         else:
             real_traffic_pk = traffic_pk
         return real_traffic_pk
+
+    def get_created_products(self, transaction_pk: str, traffic_pk: str) -> dict:
+        created_products = {}
+        if transaction_pk:
+            created_products = self.get_products_from_finalize_transaction(transaction_pk=transaction_pk)
+            if not created_products:
+                created_products = self.get_products_from_incomplete_transaction(transaction_pk=transaction_pk)
+                if not created_products:
+                    logger.warning("Не удалось обнаружить выработанную продукцию. "
+                                   "Возможно, номер транзакции указан неверно")
+        elif traffic_pk:
+            try:
+                created_products = {traffic_pk: self.get_product_name_from_traffic(traffic_pk)}
+            except AttributeError:
+                logger.warning("Не удалось обнаружить выработанную продукцию. "
+                               "Возможно, номер записи журнала указан неверно")
+        return created_products
 
     def save_cookies(self) -> None:
         self.session.save_cookies()

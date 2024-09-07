@@ -1,13 +1,28 @@
 from datetime import datetime
 from typing import Optional
-from uuid import UUID
 
-from pydantic import BaseModel, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+
+class ExcludeProductSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True, frozen=True)
+
+    product: str
+
+    @field_validator('product')
+    def _product(cls, value):
+        return value.strip()
+
+    def __eq__(self, other):
+        return (
+            self.product == other.product
+        )
 
 
 class ResearchSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True, frozen=True)
 
+    product: Optional[str] = None
     sampling_number: Optional[str] = ""
     sampling_date: Optional[str] = ""
     operator: str
@@ -31,8 +46,24 @@ class ResearchSchema(BaseModel):
             self.conclusion == other.conclusion
         )
 
-    @field_validator('sampling_number', 'operator', 'disease', 'method', 'expertise_id', 'conclusion')
+    @field_validator('sampling_number', 'method')
     def validate_string_length(cls, value):
+        value = value.strip()
+        if len(value) > 255:
+            raise ValueError('Длина строки не должна превышать 255 символов')
+        return value
+
+    @field_validator('operator', 'disease', 'expertise_id', 'conclusion')
+    def validate_not_null_string_length(cls, value):
+        value = value.strip()
+        if len(value) > 255 or len(value) < 1:
+            raise ValueError('Длина должна быть от 1 до 255 символов')
+        return value
+
+    @field_validator('product')
+    def validate_products(cls, value):
+        if value is None:
+            return value
         value = value.strip()
         if len(value) > 255:
             raise ValueError('Длина строки не должна превышать 255 символов')
@@ -54,31 +85,3 @@ class ResearchSchema(BaseModel):
         if value not in {'1', '2', '3'}:
             raise ValueError('result должно быть 1, 2 или 3')
         return value
-
-
-class SpecialResearchSchema(ResearchSchema):
-    model_config = ConfigDict(from_attributes=True, frozen=True)
-
-    product: str
-
-    @field_validator('product')
-    def validate_string_length(cls, value):
-        value = value.strip()
-        if len(value) > 255:
-            raise ValueError('Длина строки не должна превышать 255 символов')
-        return value
-
-
-class ExcludeProductSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True, frozen=True)
-
-    product: str
-
-    @field_validator('product')
-    def _product(cls, value):
-        return value.strip()
-
-    def __eq__(self, other):
-        return (
-            self.product == other.product
-        )

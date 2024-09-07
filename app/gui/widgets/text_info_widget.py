@@ -1,36 +1,55 @@
-from functools import wraps
-
 from PyQt6.QtCore import QMetaObject, Qt, Q_ARG
 from PyQt6.QtGui import QTextCursor
-from PyQt6.QtWidgets import QWidget, QGridLayout, QPlainTextEdit, QFrame
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QFrame
 from loguru import logger
 
 
-class LogWindow(QWidget):
+class TextInfoWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
         self.handler_id = None
 
-        layout = QGridLayout()
+        layout = QVBoxLayout()
 
-        self.text_browser = CustomPlainTextEdit()
+        self.text_browser = QPlainTextEdit()
         self.text_browser.setReadOnly(True)
         self.text_browser.setFrameShape(QFrame.Shape.NoFrame)
-        layout.addWidget(self.text_browser, 1, 1, 1, 1)
+        layout.addWidget(self.text_browser)
         self.setLayout(layout)
 
     def write(self, message):
-        self.text_browser.write(message)
+        message = message.strip()
+        if message:
+            QMetaObject.invokeMethod(
+                self.text_browser, "appendPlainText",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(str, message)
+            )
 
     def rewrite(self, message):
-        self.text_browser.rewrite(message)
+        message = message.strip()
+        if message:
+            self.text_browser.moveCursor(QTextCursor.MoveOperation.End, QTextCursor.MoveMode.MoveAnchor)
+            self.text_browser.moveCursor(QTextCursor.MoveOperation.StartOfLine, QTextCursor.MoveMode.MoveAnchor)
+            self.text_browser.moveCursor(QTextCursor.MoveOperation.End, QTextCursor.MoveMode.KeepAnchor)
+            self.text_browser.textCursor().removeSelectedText()
+            QMetaObject.invokeMethod(
+                self.text_browser, "appendPlainText",
+                Qt.ConnectionType.QueuedConnection, Q_ARG(str, message)
+            )
 
     def write_html(self, message):
-        self.text_browser.write_html(message)
+        message = message.strip()
+        if message:
+            QMetaObject.invokeMethod(
+                self.text_browser, "appendHtml",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(str, message)
+            )
 
     def flush(self):
-        self.text_browser.flush()
+        QMetaObject.invokeMethod(self.text_browser, "clear", Qt.ConnectionType.QueuedConnection)
 
     def add_logger(self):
         if self.handler_id is None:
@@ -60,27 +79,3 @@ class LogWindow(QWidget):
                 html_message = log_message
 
         self.write_html(html_message)
-
-
-class CustomPlainTextEdit(QPlainTextEdit):
-    def write(self, message):
-        message = message.strip()
-        if message:
-            QMetaObject.invokeMethod(self, "appendPlainText", Qt.ConnectionType.QueuedConnection, Q_ARG(str, message))
-
-    def rewrite(self, message):
-        message = message.strip()
-        if message:
-            self.moveCursor(QTextCursor.MoveOperation.End, QTextCursor.MoveMode.MoveAnchor)
-            self.moveCursor(QTextCursor.MoveOperation.StartOfLine, QTextCursor.MoveMode.MoveAnchor)
-            self.moveCursor(QTextCursor.MoveOperation.End, QTextCursor.MoveMode.KeepAnchor)
-            self.textCursor().removeSelectedText()
-            QMetaObject.invokeMethod(self, "appendPlainText", Qt.ConnectionType.QueuedConnection, Q_ARG(str, message))
-
-    def write_html(self, message):
-        message = message.strip()
-        if message:
-            QMetaObject.invokeMethod(self, "appendHtml", Qt.ConnectionType.QueuedConnection, Q_ARG(str, message))
-
-    def flush(self):
-        QMetaObject.invokeMethod(self, "clear", Qt.ConnectionType.QueuedConnection)
