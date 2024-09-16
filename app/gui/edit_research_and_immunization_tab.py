@@ -138,6 +138,8 @@ class EditResearchAndImmunizationTab(QWidget):
             with RepositoryManager() as repo:
                 user = repo.vetis_user.receive()
                 enterprise = repo.enterprise.get(enterprise_uuid)
+            if user is None:
+                return
             mercury = Mercury(login=user.login, password=user.password)
             if not mercury.is_auth:
                 return
@@ -167,5 +169,7 @@ class EditResearchAndImmunizationTab(QWidget):
             logger.error(f"{type(e)} {e}")
 
     def fill_tables_after_download(self, data: dict):
+        if data is None:
+            return
         self.research_tables.fill_special_table(data["research"])
         self.immunization_tables.fill_special_table(data["immunization"])
