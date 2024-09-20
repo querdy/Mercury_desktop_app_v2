@@ -143,8 +143,8 @@ class Mercury:
                 result=research_result_mapper[row[7].text],
                 conclusion=row[8].text,
             )
-            for research in research_table.find_all("tr", {'class': 'added'})
-            if (row := research.find_all("td")) and research_result_mapper[row[7].text] != 0
+            for research in research_table.find_all("tr", {'class': ['added', 'changed', 'removed']})
+            if (row := research.find_all("td"))
         )
         return available_research
 

@@ -1,7 +1,7 @@
 
 
 class Settings:
-    VERSION = "2.0 beta"
+    VERSION = "2.0"
     APPLICATION_TITLE = "Veterinary Events Manager"
     SCREEN_WIDTH = 1280
     SCREEN_HEIGHT = 720
